@@ -1,0 +1,806 @@
+import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: WebViewExample(),
+    );
+  }
+}
+
+
+class WebViewExample extends StatefulWidget {
+  @override
+  _WebViewExampleState createState() => _WebViewExampleState();
+}
+
+class _WebViewExampleState extends State<WebViewExample> {
+  final Completer<WebViewController> _webController =
+      Completer<WebViewController>();
+
+  final List<String> apiUrls = [
+    "http://eademoapi.linkwayapps.com/api/currency",
+    "http://eademoapi.linkwayapps.com/api/user",
+    "http://eademoapi.linkwayapps.com/api/item",
+  ];
+
+  int currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: WebView(
+          initialUrl: 'https://nadeer12.github.io/flutter_3api/',
+          javascriptMode: JavascriptMode.unrestricted,
+          onWebViewCreated: (WebViewController webViewController) {
+            _webController.complete(webViewController);
+            loadNextApi();
+          },
+          javascriptChannels: <JavascriptChannel>{
+            JavascriptChannel(
+              name: 'flutter',
+              onMessageReceived: (JavascriptMessage message) {
+                fetchData(apiUrls[currentIndex]).then((apiData) {
+                  _webController.future.then((controller) => controller.evaluateJavascript(
+                      'displayApiData("${apiUrls[currentIndex]}", ${jsonEncode(apiData)})'));
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${_getSnackbarMessage(currentIndex)} data fetch successful'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+
+                  // Load the next API after a short delay
+                  Future.delayed(Duration(seconds: 2), () {
+                    loadNextApi();
+                  });
+                });
+              },
+            ),
+          },
+        ),
+      ),
+    );
+  }
+
+  String _getSnackbarMessage(int index) {
+    switch (index) {
+      case 0:
+        return 'Currency';
+      case 1:
+        return 'User';
+      case 2:
+        return 'Item';
+      default:
+        return '';
+    }
+  }
+
+  void loadNextApi() {
+    if (currentIndex < apiUrls.length - 1) {
+      currentIndex++;
+      _webController.future.then((controller) =>
+          controller.evaluateJavascript('sendApiUrl("${apiUrls[currentIndex]}")'));
+    }
+  }
+  Future<dynamic> fetchData(String apiUrl) async {
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final dynamic data = jsonDecode(response.body);
+        return data;
+      } else {
+        throw 'Failed to fetch data (HTTP ${response.statusCode})';
+      }
+    } catch (error) {
+      // throw 'Error: $error';
+      
+      return null;
+    }
+  }
+}
+----------------------------------------------Flutter only----------------------------------------------------------------------------------
+
+
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: MyHomePage(),
+    );
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  @override
+  _MyHomePageState createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  final List<String> apiUrls = [
+    "http://eademoapi.linkwayapps.com/api/currency",
+    "http://eademoapi.linkwayapps.com/api/user",
+    "http://eademoapi.linkwayapps.com/api/item",
+  ];
+
+  String result = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('API Data Display'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              onPressed: getData,
+              child: Text('Get Data'),
+            ),
+            SizedBox(height: 20),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Text(
+                  result,
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> getData() async {
+    setState(() {
+      result = ''; // Clear previous results
+    });
+
+    for (final apiUrl in apiUrls) {
+      try {
+        final response = await http.get(Uri.parse(apiUrl));
+        final data = jsonDecode(response.body);
+
+        // Update result with the new data
+        setState(() {
+          result += 'API URL: $apiUrl\n';
+          result += jsonEncode(data) + '\n\n';
+        });
+      } catch (error) {
+        print('Error fetching data from $apiUrl: $error');
+        setState(() {
+          result += 'Error fetching data from $apiUrl. Please try again.\n\n';
+        });
+        break; // Stop further requests on error
+      }
+    }
+  }
+}
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
+
+void main() => runApp(MyApp());
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: MyWebView(),
+    );
+  }
+}
+
+class MyWebView extends StatefulWidget {
+  @override
+  _MyWebViewState createState() => _MyWebViewState();
+}
+
+class _MyWebViewState extends State<MyWebView> {
+  final Completer<WebViewController> _controller = Completer<WebViewController>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('API Data Display'),
+      ),
+      body: WebView(
+        initialUrl: 'https://nadeer12.github.io/flutter_3api/',
+        javascriptMode: JavascriptMode.unrestricted,
+        onWebViewCreated: (WebViewController controller) {
+          _controller.complete(controller);
+        },
+        javascriptChannels: <JavascriptChannel>[
+          _apiDataChannel(context),
+        ].toSet(),
+      ),
+    );
+  }
+
+  JavascriptChannel _apiDataChannel(BuildContext context) {
+    return JavascriptChannel(
+      name: 'ApiData',
+      onMessageReceived: (JavascriptMessage message) {
+        // Handle the message received from JavaScript
+        // You can use this to communicate from JavaScript to Flutter
+        print('Message received: ${message.message}');
+        // Call your function to get API data and send it back to JavaScript
+        _getApiData(message.message);
+      },
+    );
+  }
+
+  Future<void> _getApiData(String apiUrl) async {
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Send the data back to JavaScript
+        _controller.future.then((controller) {
+          // Convert the data to a JSON-formatted string
+          final jsonData = jsonEncode(data);
+          // Execute JavaScript function to display data
+          controller.evaluateJavascript('displayApiData(\'$jsonData\')');
+        });
+      } else {
+        print('Error: ${response.statusCode}');
+        _handleApiError();
+      }
+    } catch (error) {
+      print('Error fetching data from $apiUrl: $error');
+      _handleApiError();
+    }
+  }
+
+  void _handleApiError() {
+    // Send an error message back to JavaScript
+    _controller.future.then((controller) {
+      controller.evaluateJavascript('displayApiError(\'Error fetching data.\')');
+    });
+  }
+}
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
+
+void main() => runApp(MyApp());
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: MyWebView(),
+    );
+  }
+}
+
+class MyWebView extends StatefulWidget {
+  @override
+  _MyWebViewState createState() => _MyWebViewState();
+}
+
+class _MyWebViewState extends State<MyWebView> {
+  final Completer<WebViewController> _controller = Completer<WebViewController>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('API Data Display'),
+      ),
+      body: WebView(
+        initialUrl: 'https://nadeer12.github.io/flutter_3api/',
+        javascriptMode: JavascriptMode.unrestricted,
+        onWebViewCreated: (WebViewController controller) {
+          _controller.complete(controller);
+        },
+        javascriptChannels: <JavascriptChannel>[
+          _apiDataChannel(context),
+        ].toSet(),
+      ),
+    );
+  }
+
+  JavascriptChannel _apiDataChannel(BuildContext context) {
+    return JavascriptChannel(
+      name: 'ApiData',
+      onMessageReceived: (JavascriptMessage message) {
+        // Handle the message received from JavaScript
+        // You can use this to communicate from JavaScript to Flutter
+        print('Message received: ${message.message}');
+        // Call your function to get API data and send it back to JavaScript
+        _getApiData(message.message);
+      },
+    );
+  }
+
+  Future<void> _getApiData(String apiUrl) async {
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Send the data back to JavaScript
+        _controller.future.then((controller) {
+          // Convert the data to a JSON-formatted string
+          final jsonData = jsonEncode(data);
+          // Execute JavaScript function to display data
+          controller.evaluateJavascript('displayApiData($jsonData)');
+        });
+      } else {
+        print('Error: ${response.statusCode}');
+        _handleApiError();
+      }
+    } catch (error) {
+      print('Error fetching data from $apiUrl: $error');
+      _handleApiError();
+    }
+  }
+
+  void _handleApiError() {
+    // Send an error message back to JavaScript
+    _controller.future.then((controller) {
+      controller.evaluateJavascript('displayApiError(\'Error fetching data.\')');
+    });
+  }
+}
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+// import 'dart:async';
+// import 'dart:convert';
+// import 'package:flutter/material.dart';
+// import 'package:http/http.dart' as http;
+// import 'package:webview_flutter/webview_flutter.dart';
+
+// void main() => runApp(MyApp());
+
+// class MyApp extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     return MaterialApp(
+//       home: MyWebView(),
+//     );
+//   }
+// }
+
+// class MyWebView extends StatefulWidget {
+//   @override
+//   _MyWebViewState createState() => _MyWebViewState();
+// }
+
+// class _MyWebViewState extends State<MyWebView> {
+//   final Completer<WebViewController> _controller = Completer<WebViewController>();
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(
+//         title: Text('API Data Display'),
+//       ),
+//       body: WebView(
+//         initialUrl: 'https://nadeer12.github.io/flutter_3api/',
+//         javascriptMode: JavascriptMode.unrestricted,
+//         onWebViewCreated: (WebViewController controller) {
+//           _controller.complete(controller);
+//         },
+//         javascriptChannels: <JavascriptChannel>[
+//           _apiDataChannel(context),
+//         ].toSet(),
+//       ),
+//     );
+//   }
+
+//   JavascriptChannel _apiDataChannel(BuildContext context) {
+//     return JavascriptChannel(
+//       name: 'ApiData',
+//       onMessageReceived: (JavascriptMessage message) {
+//         // Handle the message received from JavaScript
+//         print('Message received: ${message.message}');
+//         // Call your function to get API data and send it back to JavaScript
+//         _getApiData(message.message);
+//       },
+//     );
+//   }
+
+// Future<void> _getApiData(String apiUrl) async {
+//   try {
+//     final response = await http.get(Uri.parse(apiUrl));
+//     if (response.statusCode == 200) {
+//       final data = jsonDecode(response.body);
+
+//       // Send the data back to JavaScript
+//       _controller.future.then((controller) async {
+//         // Convert the data to a JSON-formatted string
+//         final jsonData = jsonEncode(data);
+//         // Execute JavaScript function to display data
+//         controller.evaluateJavascript('displayApiData($jsonData)');
+
+//         // Show a Snackbar based on the API URL
+//         if (apiUrl.contains('currency')) {
+//           _showSnackbar('Currency data successfully fetched');
+//         } else if (apiUrl.contains('user')) {
+//           _showSnackbar('User data successfully fetched');
+//         } else if (apiUrl.contains('item')) {
+//           _showSnackbar('Item data successfully fetched');
+//         }
+//       });
+
+//       // Introduce a delay (e.g., 5 seconds) between API calls
+//       await Future.delayed(Duration(seconds: 10));
+//     } else {
+//       print('Error: ${response.statusCode}');
+//       _handleApiError();
+//     }
+//   } catch (error) {
+//     print('Error fetching data from $apiUrl: $error');
+//     _handleApiError();
+//   }
+// }
+//   Future<void> _handleApiError() async {
+//     // Send an error message back to JavaScript
+//     _controller.future.then((controller) {
+//       controller.evaluateJavascript('displayApiError(\'Error fetching data.\')');
+//     });
+//   }
+
+//   Future<void> _showSnackbar(String message) async {
+//     // Introduce a waiting time (delay) of 2 seconds
+//     // await Future.delayed(Duration(seconds: 10));
+
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(content: Text(message)),
+//     );
+//   }
+// }
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
+
+void main() => runApp(MyApp());
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: MyWebView(),
+    );
+  }
+}
+
+class MyWebView extends StatefulWidget {
+  @override
+  _MyWebViewState createState() => _MyWebViewState();
+}
+
+class _MyWebViewState extends State<MyWebView> {
+  final Completer<WebViewController> _controller = Completer<WebViewController>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('API Data Display'),
+      ),
+      body: WebView(
+        initialUrl: 'https://nadeer12.github.io/flutter_3api/',
+        javascriptMode: JavascriptMode.unrestricted,
+        onWebViewCreated: (WebViewController controller) {
+          _controller.complete(controller);
+        },
+        javascriptChannels: <JavascriptChannel>[
+          _apiDataChannel(context, 'currency'),
+          _apiDataChannel(context, 'user'),
+          _apiDataChannel(context, 'item'),
+        ].toSet(),
+      ),
+    );
+  }
+
+  JavascriptChannel _apiDataChannel(BuildContext context, String apiType) {
+    return JavascriptChannel(
+      name: 'ApiData_$apiType',
+      onMessageReceived: (JavascriptMessage message) {
+        print('Message received for $apiType: ${message.message}');
+        _getApiData(message.message, apiType);
+      },
+    );
+  }
+
+  Future<void> _getApiData(String apiUrl, String apiType) async {
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        _controller.future.then((controller) async {
+          final jsonData = jsonEncode(data);
+          controller.evaluateJavascript('displayApiData($jsonData, "$apiType")');
+        });
+        await Future.delayed(Duration(seconds: 2));
+      } else {
+        print('Error for $apiType: ${response.statusCode}');
+        _handleApiError();
+      }
+    } catch (error) {
+      print('Error fetching data from $apiUrl for $apiType: $error');
+      _handleApiError();
+    }
+  }
+
+  Future<void> _handleApiError() async {
+    _controller.future.then((controller) {
+      controller.evaluateJavascript('displayApiError(\'Error fetching data.\')');
+    });
+  }
+}
+---------------------------------------------------------16/12/2023--------------------------------------------------------------------------------------------------------------
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
+
+void main() => runApp(MyApp());
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: MyWebView(),
+    );
+  }
+}
+
+class MyWebView extends StatefulWidget {
+  @override
+  _MyWebViewState createState() => _MyWebViewState();
+}
+
+class _MyWebViewState extends State<MyWebView> {
+  final Completer<WebViewController> _controller = Completer<WebViewController>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('API Data Display'),
+      ),
+      body: WebView(
+        initialUrl: 'https://nadeer12.github.io/flutter_3api/',
+        javascriptMode: JavascriptMode.unrestricted,
+        onWebViewCreated: (WebViewController controller) {
+          _controller.complete(controller);
+        },
+        javascriptChannels: <JavascriptChannel>[
+          _apiDataChannel(context, 'currency'),
+          _apiDataChannel(context, 'user'),
+          _apiDataChannel(context, 'item'),
+        ].toSet(),
+      ),
+    );
+  }
+
+  JavascriptChannel _apiDataChannel(BuildContext context, String apiType) {
+    return JavascriptChannel(
+      name: 'ApiData_$apiType',
+      onMessageReceived: (JavascriptMessage message) {
+        print('Message received for $apiType: ${message.message}');
+        _getApiData(message.message, apiType);
+      },
+    );
+  }
+  
+
+Future<void> _getApiData(String apiUrl, String apiType) async {
+  try {
+    final response = await http.get(Uri.parse(apiUrl));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      _controller.future.then((controller) async {
+        final jsonData = jsonEncode(data);
+        controller.evaluateJavascript('displayApiData($jsonData, "$apiType")');
+        if (apiType == 'currency' && data is List && data.isNotEmpty) {
+          final firstData = data[0];
+          print('Currency data at 0th position: ${firstData}');
+          try {
+            final response2 = await http.get(
+              Uri.parse('http://eademoapi.linkwayapps.com/api/currency/getcurrency?currencysymbol=' + firstData),
+            );
+
+            if (response2.statusCode == 200) {
+              final data2 = jsonDecode(response2.body);
+              _showData2Dialog(data2); // Show the data2 in a dialog
+            } else {
+              print('Error in second request: ${response2.statusCode}');
+              // Handle error for the second request
+            }
+          } catch (error) {
+            print('Error in second request: $error');
+            // Handle error for the second request
+          }
+        }
+      });
+      await Future.delayed(Duration(seconds: 2));
+    } else {
+      print('Error for $apiType: ${response.statusCode}');
+      _handleApiError();
+    }
+  } catch (error) {
+    print('Error fetching data from $apiUrl for $apiType: $error');
+    _handleApiError();
+  }
+}
+
+void _showData2Dialog(dynamic data2) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Currency First data Details From '),
+        content: Text(': $data2'),
+        // You can customize the content of the dialog based on your data2 structure
+      );
+    },
+  );
+}
+
+
+
+  Future<void> _handleApiError() async {
+    _controller.future.then((controller) {
+      controller.evaluateJavascript('displayApiError(\'Error fetching data.\')');
+    });
+  }
+}
+----------------------------------------------------------------------------------------------------------
+
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
+
+void main() => runApp(MyApp());
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: MyWebView(),
+    );
+  }
+}
+
+class MyWebView extends StatefulWidget {
+  @override
+  _MyWebViewState createState() => _MyWebViewState();
+}
+
+class _MyWebViewState extends State<MyWebView> {
+  final Completer<WebViewController> _controller = Completer<WebViewController>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('API Data Display'),
+      ),
+      body: WebView(
+        initialUrl: 'https://nadeer12.github.io/flutter_3api/',
+        javascriptMode: JavascriptMode.unrestricted,
+        onWebViewCreated: (WebViewController controller) {
+          _controller.complete(controller);
+        },
+        javascriptChannels: <JavascriptChannel>[
+          _apiDataChannel(context, 'currency'),
+          _apiDataChannel(context, 'user'),
+          _apiDataChannel(context, 'item'),
+        ].toSet(),
+      ),
+    );
+  }
+
+JavascriptChannel _apiDataChannel(BuildContext context, String apiType) {
+  return JavascriptChannel(
+    name: 'ApiData_$apiType',
+    onMessageReceived: (JavascriptMessage message) {
+      print('Message received for $apiType: ${message.message}');
+      _getApiData(message.message, apiType);
+    },
+  );
+}
+
+Future<void> _getApiData(String apiUrl, String apiType) async {
+  try {
+    final response = await http.get(Uri.parse(apiUrl));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      _controller.future.then((controller) async {
+        final jsonData = jsonEncode(data);
+        controller.evaluateJavascript('displayApiData($jsonData, "$apiType")');
+        if (apiType == 'currency' && data is List && data.isNotEmpty) {
+          final firstData = data[0];
+          print('Currency data at 0th position: ${firstData}');
+          try {
+            final response2 = await http.get(
+              Uri.parse('http://eademoapi.linkwayapps.com/api/currency/getcurrency?currencysymbol=' + firstData),
+            );
+
+            if (response2.statusCode == 200) {
+              final data2 = jsonDecode(response2.body);
+              _showData2Dialog(data2);
+              //passing tha data2 variable to index.html
+              controller.evaluateJavascript('displayData2Alert(${jsonEncode(data2)})');
+            } else {
+              print('Error in second request: ${response2.statusCode}');
+              // Handle error for the second request
+            }
+          } catch (error) {
+            print('Error in second request: $error');
+            // Handle error for the second request
+          }
+        }
+      });
+      await Future.delayed(Duration(seconds: 2));
+    } else {
+      print('Error for $apiType: ${response.statusCode}');
+      _handleApiError();
+    }
+  } catch (error) {
+    print('Error fetching data from $apiUrl for $apiType: $error');
+    _handleApiError();
+  }
+}
+void _showData2Dialog(dynamic data2) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Currency First data Details '),
+        content: Text(': $data2'),
+        // You can customize the content of the dialog based on your data2 structure
+      );
+    },
+  );
+}
+
+
+
+  Future<void> _handleApiError() async {
+    _controller.future.then((controller) {
+      controller.evaluateJavascript('displayApiError(\'Error fetching data.\')');
+    });
+  }
+}
